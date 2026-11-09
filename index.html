@@ -37,14 +37,14 @@
     <h2>最新のデプロイ</h2>
     <p class="note">GitHub Actionsがデプロイのたびに生成する情報を表示しています。</p>
     <div class="grid">
-      <div class="item"><span class="label">デプロイ日時</span><span class="value" id="deployed-at">読み込み中...</span></div>
+      <div class="item"><span class="label">ブランチ</span><span class="value" id="branch">-</span></div>\n      <div class="item"><span class="label">デプロイ日時</span><span class="value" id="deployed-at">読み込み中...</span></div>
       <div class="item"><span class="label">デプロイ回数（workflow run）</span><span class="value" id="run-number">-</span></div>
       <div class="item"><span class="label">実行者</span><span class="value" id="actor">-</span></div>
       <div class="item"><span class="label">実行イベント</span><span class="value" id="event">-</span></div>
       <div class="item"><span class="label">コミット</span><span class="value" id="commit">-</span></div>
       <div class="item"><span class="label">デプロイメッセージ</span><span class="value" id="message">-</span></div>
     </div>
-    <p class="note" style="margin-bottom:0">このページの内容を変更して <code>main</code> にPushすると、自動で表示が更新されます。</p>
+    <p class="note" style="margin-bottom:0">このページは <code>main</code> の内容です。<code>dev</code> の確認用ページはURL末尾に <code>/dev/</code> を付けて開いてください。各ブランチへのPushで両環境が更新されます。</p>
   </section>
   <p class="note">デプロイ情報が表示されない場合は、GitHub Actionsの実行結果とPagesの公開設定を確認してください。</p>
 </main>
@@ -55,7 +55,7 @@
       return response.json();
     })
     .then(info => {
-      document.getElementById('status').textContent = 'DEPLOYED';
+      document.getElementById('status').textContent = 'DEPLOYED';\n      document.getElementById('branch').textContent = info.branch || '-';
       document.getElementById('deployed-at').textContent =
         new Date(info.deployedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
       document.getElementById('run-number').textContent = info.runNumber;

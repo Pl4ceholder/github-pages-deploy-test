@@ -1,8 +1,10 @@
-name: Deploy to GitHub Pages
+name: Deploy main and dev to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - dev
   workflow_dispatch:
     inputs:
       message:
@@ -27,32 +29,71 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Checkout
+      - name: Checkout main
         uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main-source
 
-      - name: Generate deployment information
+      - name: Checkout dev
+        uses: actions/checkout@v4
+        with:
+          ref: dev
+          path: dev-source
+
+      - name: Assemble both environments
         env:
           RUN_NUMBER: ${{ github.run_number }}
           ACTOR: ${{ github.actor }}
           EVENT_NAME: ${{ github.event_name }}
-          COMMIT_SHA: ${{ github.sha }}
           DEPLOY_MESSAGE: ${{ inputs.message }}
         run: |
-          SHORT_SHA="${COMMIT_SHA::7}"
-          MESSAGE="${DEPLOY_MESSAGE:-Push to main}"
+          set -euo pipefail
+
+          mkdir -p public/dev
+
+          # main is published at the site root; dev is published under /dev/.
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='README.md' \
+            --exclude='.gitignore' \
+            main-source/ public/
+
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='README.md' \
+            --exclude='.gitignore' \
+            dev-source/ public/dev/
+
+          MAIN_SHA="$(git -C main-source rev-parse HEAD)"
+          DEV_SHA="$(git -C dev-source rev-parse HEAD)"
+          export MAIN_SHA DEV_SHA
+
           python3 - <<'PY'
           import json, os
           from datetime import datetime, timezone
-          data = {
+
+          common = {
               "deployedAt": datetime.now(timezone.utc).isoformat(),
               "runNumber": os.environ["RUN_NUMBER"],
               "actor": os.environ["ACTOR"],
               "event": os.environ["EVENT_NAME"],
-              "commit": os.environ["COMMIT_SHA"][:7],
-              "message": os.environ.get("DEPLOY_MESSAGE") or "Push to main"
+              "message": os.environ.get("DEPLOY_MESSAGE") or "Automatic deployment",
           }
-          with open("deploy-info.json", "w", encoding="utf-8") as f:
-              json.dump(data, f, ensure_ascii=False, indent=2)
+
+          for branch, sha, directory in (
+              ("main", os.environ["MAIN_SHA"], "public"),
+              ("dev", os.environ["DEV_SHA"], "public/dev"),
+          ):
+              data = {
+                  **common,
+                  "branch": branch,
+                  "commit": sha[:7],
+              }
+              with open(f"{directory}/deploy-info.json", "w", encoding="utf-8") as f:
+                  json.dump(data, f, ensure_ascii=False, indent=2)
           PY
 
       - name: Configure GitHub Pages
@@ -61,7 +102,7 @@ jobs:
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: public
 
       - name: Deploy
         id: deployment
