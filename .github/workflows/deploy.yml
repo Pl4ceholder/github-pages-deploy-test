@@ -49,27 +49,27 @@ jobs:
           DEPLOY_MESSAGE: ${{ inputs.message }}
         run: |
           set -euo pipefail
-
           mkdir -p public/dev
 
-          # main is published at the site root; dev is published under /dev/.
           rsync -a --delete \
-            --exclude='.git/' \
-            --exclude='.github/' \
-            --exclude='README.md' \
-            --exclude='.gitignore' \
+            --exclude='.git/' --exclude='.github/' --exclude='README.md' \
+            --exclude='.gitignore' --exclude='.env' --exclude='.env.*' \
             main-source/ public/
-
           rsync -a --delete \
-            --exclude='.git/' \
-            --exclude='.github/' \
-            --exclude='README.md' \
-            --exclude='.gitignore' \
+            --exclude='.git/' --exclude='.github/' --exclude='README.md' \
+            --exclude='.gitignore' --exclude='.env' --exclude='.env.*' \
             dev-source/ public/dev/
 
           MAIN_SHA="$(git -C main-source rev-parse HEAD)"
           DEV_SHA="$(git -C dev-source rev-parse HEAD)"
           export MAIN_SHA DEV_SHA
+
+          # Create build-time .env files for each published branch.
+          # These files stay on the runner and are never copied to the public site.
+          printf 'APP_ENV=main\n' > "$RUNNER_TEMP/main.env"
+          printf 'APP_ENV=dev\n' > "$RUNNER_TEMP/dev.env"
+          export MAIN_ENV_FILE="$RUNNER_TEMP/main.env"
+          export DEV_ENV_FILE="$RUNNER_TEMP/dev.env"
 
           python3 - <<'PY'
           import json, os
@@ -83,10 +83,25 @@ jobs:
               "message": os.environ.get("DEPLOY_MESSAGE") or "Automatic deployment",
           }
 
-          for branch, sha, directory in (
-              ("main", os.environ["MAIN_SHA"], "public"),
-              ("dev", os.environ["DEV_SHA"], "public/dev"),
+          def read_env(path):
+              values = {}
+              with open(path, encoding="utf-8") as f:
+                  for line in f:
+                      line = line.strip()
+                      if line and not line.startswith("#") and "=" in line:
+                          key, value = line.split("=", 1)
+                          values[key.strip()] = value.strip()
+              return values
+
+          for branch, sha, directory, env_file in (
+              ("main", os.environ["MAIN_SHA"], "public", os.environ["MAIN_ENV_FILE"]),
+              ("dev", os.environ["DEV_SHA"], "public/dev", os.environ["DEV_ENV_FILE"]),
           ):
+              env = read_env(env_file)
+              config = {"branch": branch, "environment": env.get("APP_ENV", branch)}
+              with open(f"{directory}/env-config.js", "w", encoding="utf-8") as f:
+                  f.write("window.APP_CONFIG = " + json.dumps(config) + ";\n")
+
               data = {
                   **common,
                   "branch": branch,
