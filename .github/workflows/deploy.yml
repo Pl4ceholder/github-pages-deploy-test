@@ -1,0 +1,68 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      message:
+        description: "ページに表示するデプロイメッセージ"
+        required: false
+        default: "Manual deployment"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate deployment information
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+          ACTOR: ${{ github.actor }}
+          EVENT_NAME: ${{ github.event_name }}
+          COMMIT_SHA: ${{ github.sha }}
+          DEPLOY_MESSAGE: ${{ inputs.message }}
+        run: |
+          SHORT_SHA="${COMMIT_SHA::7}"
+          MESSAGE="${DEPLOY_MESSAGE:-Push to main}"
+          python3 - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          data = {
+              "deployedAt": datetime.now(timezone.utc).isoformat(),
+              "runNumber": os.environ["RUN_NUMBER"],
+              "actor": os.environ["ACTOR"],
+              "event": os.environ["EVENT_NAME"],
+              "commit": os.environ["COMMIT_SHA"][:7],
+              "message": os.environ.get("DEPLOY_MESSAGE") or "Push to main"
+          }
+          with open("deploy-info.json", "w", encoding="utf-8") as f:
+              json.dump(data, f, ensure_ascii=False, indent=2)
+          PY
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title>Deploy Test | GitHub Pages</title>
+  <style>
+    :root { color-scheme: dark; --bg:#101827; --panel:#192538; --line:#304158; --muted:#9aabc1; --green:#4ade80; --blue:#7dd3fc; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; padding:48px 20px; background:radial-gradient(ellipse at top,#203654 0%,var(--bg) 55%); color:#edf4ff; font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif; }
+    main { width:min(760px,100%); margin:auto; }
+    .eyebrow { color:var(--blue); font-size:.78rem; font-weight:700; letter-spacing:.16em; }
+    h1 { margin:.4rem 0; font-size:clamp(2.1rem,7vw,3.6rem); line-height:1.1; }
+    .lead { color:var(--muted); margin:0 0 28px; }
+    .card { background:rgba(25,37,56,.92); border:1px solid var(--line); border-radius:18px; padding:24px; margin:18px 0; box-shadow:0 18px 55px #0003; }
+    .status { display:inline-flex; align-items:center; gap:9px; border:1px solid #28734b; background:#123524; color:var(--green); padding:6px 12px; border-radius:99px; font-weight:700; font-size:.85rem; }
+    .dot { width:8px; height:8px; background:var(--green); border-radius:50%; box-shadow:0 0 12px var(--green); }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:20px; }
+    .item { background:#111d2d; border:1px solid var(--line); border-radius:12px; padding:14px; min-width:0; }
+    .label { display:block; color:var(--muted); font-size:.76rem; margin-bottom:5px; }
+    .value { display:block; font-weight:650; overflow-wrap:anywhere; }
+    code { color:#bae6fd; font-size:.9em; }
+    a { color:var(--blue); }
+    .note { color:var(--muted); font-size:.88rem; }
+    @media(max-width:520px) { .grid { grid-template-columns:1fr; } body { padding:30px 16px; } }
+  </style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">CONTINUOUS DEPLOYMENT DEMO</div>
+  <h1>Deploy Test</h1>
+  <p class="lead">GitHub ActionsからGitHub Pagesへ自動デプロイするテストサイトです。</p>
+
+  <section class="card">
+    <span class="status"><span class="dot"></span><span id="status">デプロイ情報を読み込み中</span></span>
+    <h2>最新のデプロイ</h2>
+    <p class="note">GitHub Actionsがデプロイのたびに生成する情報を表示しています。</p>
+    <div class="grid">
+      <div class="item"><span class="label">デプロイ日時</span><span class="value" id="deployed-at">読み込み中...</span></div>
+      <div class="item"><span class="label">デプロイ回数（workflow run）</span><span class="value" id="run-number">-</span></div>
+      <div class="item"><span class="label">実行者</span><span class="value" id="actor">-</span></div>
+      <div class="item"><span class="label">実行イベント</span><span class="value" id="event">-</span></div>
+      <div class="item"><span class="label">コミット</span><span class="value" id="commit">-</span></div>
+      <div class="item"><span class="label">デプロイメッセージ</span><span class="value" id="message">-</span></div>
+    </div>
+    <p class="note" style="margin-bottom:0">このページの内容を変更して <code>main</code> にPushすると、自動で表示が更新されます。</p>
+  </section>
+  <p class="note">デプロイ情報が表示されない場合は、GitHub Actionsの実行結果とPagesの公開設定を確認してください。</p>
+</main>
+<script>
+  fetch('./deploy-info.json', { cache: 'no-store' })
+    .then(response => {
+      if (!response.ok) throw new Error('deploy-info.json を取得できません');
+      return response.json();
+    })
+    .then(info => {
+      document.getElementById('status').textContent = 'DEPLOYED';
+      document.getElementById('deployed-at').textContent =
+        new Date(info.deployedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+      document.getElementById('run-number').textContent = info.runNumber;
+      document.getElementById('actor').textContent = info.actor;
+      document.getElementById('event').textContent = info.event;
+      document.getElementById('commit').textContent = info.commit;
+      document.getElementById('message').textContent = info.message || '(なし)';
+    })
+    .catch(error => {
+      document.getElementById('status').textContent = 'デプロイ情報を取得できません';
+      document.getElementById('deployed-at').textContent = error.message;
+    });
+</script>
+</body>
+</html>
