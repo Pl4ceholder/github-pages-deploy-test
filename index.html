@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#101827">
   <title>Deploy Test | GitHub Pages</title>
   <style>
-    :root { color-scheme: dark; --bg:#101827; --panel:#192538; --line:#304158; --muted:#9aabc1; --green:#4ade80; --blue:#7dd3fc; }
+    :root { color-scheme: dark; --bg:#101827; --panel:#192538; --line:#304158; --muted:#9aabc1; --green:#4ade80; --blue:#7dd3fc; --amber:#fbbf24; }
     * { box-sizing: border-box; }
     body { margin:0; min-height:100vh; padding:48px 20px; background:radial-gradient(ellipse at top,#203654 0%,var(--bg) 55%); color:#edf4ff; font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif; }
     main { width:min(760px,100%); margin:auto; }
@@ -15,7 +15,8 @@
     .lead { color:var(--muted); margin:0 0 28px; }
     .card { background:rgba(25,37,56,.92); border:1px solid var(--line); border-radius:18px; padding:24px; margin:18px 0; box-shadow:0 18px 55px #0003; }
     .status { display:inline-flex; align-items:center; gap:9px; border:1px solid #28734b; background:#123524; color:var(--green); padding:6px 12px; border-radius:99px; font-weight:700; font-size:.85rem; }
-    .dot { width:8px; height:8px; background:var(--green); border-radius:50%; box-shadow:0 0 12px var(--green); }
+    .status.dev { border-color:#926b18; background:#3a2c10; color:var(--amber); }
+    .dot { width:8px; height:8px; background:currentColor; border-radius:50%; box-shadow:0 0 12px currentColor; }
     .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:20px; }
     .item { background:#111d2d; border:1px solid var(--line); border-radius:12px; padding:14px; min-width:0; }
     .label { display:block; color:var(--muted); font-size:.76rem; margin-bottom:5px; }
@@ -25,6 +26,7 @@
     .note { color:var(--muted); font-size:.88rem; }
     @media(max-width:520px) { .grid { grid-template-columns:1fr; } body { padding:30px 16px; } }
   </style>
+  <script src="./env-config.js"></script>
 </head>
 <body>
 <main>
@@ -33,39 +35,47 @@
   <p class="lead">GitHub ActionsからGitHub Pagesへ自動デプロイするテストサイトです。</p>
 
   <section class="card">
-    <span class="status"><span class="dot"></span><span id="status">デプロイ情報を読み込み中</span></span>
-    <h2>最新のデプロイ</h2>
-    <p class="note">GitHub Actionsがデプロイのたびに生成する情報を表示しています。</p>
+    <span class="status" id="environment-badge"><span class="dot"></span><span id="environment-name">環境を確認中</span></span>
+    <h2>現在表示している環境</h2>
+    <p class="note">この表示はGitHub Actionsがブランチごとに生成した設定をもとにしています。</p>
     <div class="grid">
-      <div class="item"><span class="label">ブランチ</span><span class="value" id="branch">-</span></div>\n      <div class="item"><span class="label">デプロイ日時</span><span class="value" id="deployed-at">読み込み中...</span></div>
+      <div class="item"><span class="label">環境 / ブランチ</span><span class="value" id="branch">読み込み中...</span></div>
+      <div class="item"><span class="label">デプロイ日時</span><span class="value" id="deployed-at">読み込み中...</span></div>
       <div class="item"><span class="label">デプロイ回数（workflow run）</span><span class="value" id="run-number">-</span></div>
       <div class="item"><span class="label">実行者</span><span class="value" id="actor">-</span></div>
       <div class="item"><span class="label">実行イベント</span><span class="value" id="event">-</span></div>
       <div class="item"><span class="label">コミット</span><span class="value" id="commit">-</span></div>
       <div class="item"><span class="label">デプロイメッセージ</span><span class="value" id="message">-</span></div>
     </div>
-    <p class="note" style="margin-bottom:0">このページは <code>main</code> の内容です。<code>dev</code> の確認用ページはURL末尾に <code>/dev/</code> を付けて開いてください。各ブランチへのPushで両環境が更新されます。</p>
+    <p class="note" style="margin-bottom:0">main: サイト直下 / dev: <code>/dev/</code>。どちらのURLも公開されるため、devに未公開情報を置かないでください。</p>
   </section>
   <p class="note">デプロイ情報が表示されない場合は、GitHub Actionsの実行結果とPagesの公開設定を確認してください。</p>
 </main>
 <script>
+  const config = window.APP_CONFIG || {};
+  const branch = config.branch || 'unknown';
+  const badge = document.getElementById('environment-badge');
+  document.getElementById('environment-name').textContent = branch === 'dev' ? 'DEVELOPMENT' : branch === 'main' ? 'PRODUCTION' : 'UNKNOWN';
+  document.getElementById('branch').textContent = branch;
+  if (branch === 'dev') badge.classList.add('dev');
+
   fetch('./deploy-info.json', { cache: 'no-store' })
     .then(response => {
       if (!response.ok) throw new Error('deploy-info.json を取得できません');
       return response.json();
     })
     .then(info => {
-      document.getElementById('status').textContent = 'DEPLOYED';\n      document.getElementById('branch').textContent = info.branch || '-';
+      // deploy-info.json is the authoritative record of the deployed source revision.
+      document.getElementById('branch').textContent = info.branch || branch;
       document.getElementById('deployed-at').textContent =
         new Date(info.deployedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
-      document.getElementById('run-number').textContent = info.runNumber;
-      document.getElementById('actor').textContent = info.actor;
-      document.getElementById('event').textContent = info.event;
-      document.getElementById('commit').textContent = info.commit;
+      document.getElementById('run-number').textContent = info.runNumber ?? '-';
+      document.getElementById('actor').textContent = info.actor || '-';
+      document.getElementById('event').textContent = info.event || '-';
+      document.getElementById('commit').textContent = info.commit || '-';
       document.getElementById('message').textContent = info.message || '(なし)';
     })
     .catch(error => {
-      document.getElementById('status').textContent = 'デプロイ情報を取得できません';
       document.getElementById('deployed-at').textContent = error.message;
     });
 </script>
